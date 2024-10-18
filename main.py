@@ -6,7 +6,6 @@ import win32com.client
 from tkinter import messagebox, simpledialog, ttk
 import tkinter as tk
 from tkinter import Frame, Button
-from ttkthemes import ThemedTk
 from PIL import Image, ImageTk
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -26,6 +25,17 @@ except ModuleNotFoundError as e:
 
 log_file_path = r'C:\ProgramData\AnyDesk\ad_svc.trace'
 shortcut_path = r'C:\Projeto Acesso AnyDesk\atalhos_anydesk\1695790049.lnk'
+
+# Load icons if available
+icon_open = icon_hide = icon_view_hidden = icon_start = icon_stop = None
+try:
+    icon_open = ImageTk.PhotoImage(Image.open("open_icon.png").resize((16, 16), Image.ANTIALIAS))
+    icon_hide = ImageTk.PhotoImage(Image.open("hide_icon.png").resize((16, 16), Image.ANTIALIAS))
+    icon_view_hidden = ImageTk.PhotoImage(Image.open("view_hidden_icon.png").resize((16, 16), Image.ANTIALIAS))
+    icon_start = ImageTk.PhotoImage(Image.open("start_icon.png").resize((16, 16), Image.ANTIALIAS))
+    icon_stop = ImageTk.PhotoImage(Image.open("stop_icon.png").resize((16, 16), Image.ANTIALIAS))
+except FileNotFoundError:
+    print("Um ou mais ícones não foram encontrados. Continuando sem ícones.")
 
 def abrir_anydesk(remote_id):
     try:
@@ -74,16 +84,23 @@ def update_treeview(tree, saved_accesses):
             tree.insert("", "end", values=(remote_id, name))
 
 def iniciar_interface():
-    root = ThemedTk(theme="arc")
+    root = tk.Tk()
     root.title("Monitoramento de Acessos AnyDesk")
     root.geometry("800x400")
+    root.configure(bg="#f0f0f0")
+
+    style = ttk.Style()
+    style.theme_use("clam")
+    style.configure("TButton", padding=6, relief="flat", background="#ccc")
+    style.configure("TLabel", background="#f0f0f0")
+    style.configure("TFrame", background="#f0f0f0")
 
     search_frame = ttk.Frame(root)
     search_frame.grid(row=0, column=0, pady=10, sticky=(tk.W, tk.E))
     ttk.Label(search_frame, text="Buscar ID ou Nome:").pack(side=tk.LEFT, padx=5)
     search_entry = ttk.Entry(search_frame, width=30)
     search_entry.pack(side=tk.LEFT, padx=5)
-    ttk.Button(search_frame, text="Abrir AnyDesk", command=lambda: abrir_anydesk(search_entry.get())).pack(side=tk.LEFT, padx=5)
+    ttk.Button(search_frame, text="Abrir AnyDesk", image=icon_open, compound=tk.LEFT if icon_open else None, command=lambda: abrir_anydesk(search_entry.get())).pack(side=tk.LEFT, padx=5)
 
     frame = ttk.Frame(root, padding="10")
     frame.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
@@ -96,10 +113,10 @@ def iniciar_interface():
     tree.heading("Nome", text="Nome")
     tree.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
 
-    hidden_button = ttk.Button(root, text="Ver Acessos Ocultos", command=lambda: mostrar_acessos_ocultos())
+    hidden_button = ttk.Button(root, text="Ver Acessos Ocultos", image=icon_view_hidden, compound=tk.LEFT if icon_view_hidden else None, command=lambda: mostrar_acessos_ocultos())
     hidden_button.grid(row=0, column=1, padx=5, sticky=(tk.E))
 
-    hide_button = ttk.Button(root, text="Ocultar Acesso Selecionado", command=lambda: ocultar_selecionado(tree))
+    hide_button = ttk.Button(root, text="Ocultar Acesso Selecionado", image=icon_hide, compound=tk.LEFT if icon_hide else None, command=lambda: ocultar_selecionado(tree))
     hide_button.grid(row=1, column=1, padx=5, sticky=(tk.E))
 
     saved_accesses = load_saved_accesses()
@@ -129,6 +146,7 @@ def iniciar_interface():
     def mostrar_acessos_ocultos():
         ocultos_window = tk.Toplevel(root)
         ocultos_window.title("Acessos Ocultos")
+        ocultos_window.configure(bg="#f0f0f0")
         ocultos_tree = ttk.Treeview(ocultos_window, columns=("ID", "Nome"), show="headings")
         ocultos_tree.heading("ID", text="ID")
         ocultos_tree.heading("Nome", text="Nome")
@@ -140,8 +158,8 @@ def iniciar_interface():
     search_entry.bind("<KeyRelease>", on_key_release)
     tree.bind("<Double-1>", lambda event: abrir_anydesk(tree.item(tree.selection()[0], "values")[0]))
 
-    ttk.Button(frame, text="Iniciar Monitoramento", command=lambda: monitor_anydesk_log(log_file_path, saved_accesses, tree, root)).grid(row=1, column=0, pady=5)
-    ttk.Button(frame, text="Parar Monitoramento", command=root.quit).grid(row=2, column=0, pady=5)
+    ttk.Button(frame, text="Iniciar Monitoramento", image=icon_start, compound=tk.LEFT if icon_start else None, command=lambda: monitor_anydesk_log(log_file_path, saved_accesses, tree, root)).grid(row=1, column=0, pady=5)
+    ttk.Button(frame, text="Parar Monitoramento", image=icon_stop, compound=tk.LEFT if icon_stop else None, command=root.quit).grid(row=2, column=0, pady=5)
 
     iniciar_listener(lambda: update_treeview(tree, load_saved_accesses()))
     root.mainloop()
