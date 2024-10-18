@@ -7,12 +7,15 @@ from tkinter import messagebox, simpledialog, ttk
 import tkinter as tk
 from tkinter import Frame, Button
 from PIL import Image, ImageTk
+import json
 
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(project_root)
 
 interface_path = os.path.join(project_root, 'interface')
 sys.path.append(interface_path)
+
+hidden_accesses_file = os.path.join(project_root, 'hidden_accesses.json')
 
 try:
     from firebase_service import load_saved_accesses, save_access, delete_access, iniciar_listener
@@ -27,15 +30,26 @@ log_file_path = r'C:\ProgramData\AnyDesk\ad_svc.trace'
 shortcut_path = r'C:\Projeto Acesso AnyDesk\atalhos_anydesk\1695790049.lnk'
 
 # Load icons if available
-icon_open = icon_hide = icon_view_hidden = icon_start = icon_stop = None
+icon_open = icon_hide = icon_view_hidden = icon_start = icon_stop = icon_view = None
 try:
     icon_open = ImageTk.PhotoImage(Image.open("open_icon.png").resize((16, 16), Image.ANTIALIAS))
     icon_hide = ImageTk.PhotoImage(Image.open("hide_icon.png").resize((16, 16), Image.ANTIALIAS))
     icon_view_hidden = ImageTk.PhotoImage(Image.open("view_hidden_icon.png").resize((16, 16), Image.ANTIALIAS))
     icon_start = ImageTk.PhotoImage(Image.open("start_icon.png").resize((16, 16), Image.ANTIALIAS))
     icon_stop = ImageTk.PhotoImage(Image.open("stop_icon.png").resize((16, 16), Image.ANTIALIAS))
+    icon_view = ImageTk.PhotoImage(Image.open("view_icon.png").resize((16, 16), Image.ANTIALIAS))
 except FileNotFoundError:
     print("Um ou mais ícones não foram encontrados. Continuando sem ícones.")
+
+# Load hidden accesses from file
+hidden_accesses = {}
+if os.path.exists(hidden_accesses_file):
+    with open(hidden_accesses_file, 'r') as f:
+        hidden_accesses = json.load(f)
+
+def save_hidden_accesses():
+    with open(hidden_accesses_file, 'w') as f:
+        json.dump(hidden_accesses, f)
 
 def abrir_anydesk(remote_id):
     try:
@@ -45,10 +59,15 @@ def abrir_anydesk(remote_id):
     except Exception as e:
         messagebox.showerror("Erro ao abrir AnyDesk", str(e))
 
+def validar_remote_id(remote_id):
+    return remote_id.isdigit() and len(remote_id) >= 9
+
 def process_logs(log_lines, saved_accesses, root):
     for line in log_lines:
         if 'app.session' in line and 'Connecting to "' in line:
             remote_id = line.split('"')[1]
+            if not validar_remote_id(remote_id):
+                continue
             if remote_id in saved_accesses:
                 continue
 
@@ -65,7 +84,6 @@ def process_logs(log_lines, saved_accesses, root):
                 saved_accesses[remote_id] = name
 
 last_position = 0
-hidden_accesses = {}
 
 def monitor_anydesk_log(log_path, saved_accesses, tree, root):
     global last_position
@@ -86,7 +104,7 @@ def update_treeview(tree, saved_accesses):
 def iniciar_interface():
     root = tk.Tk()
     root.title("Monitoramento de Acessos AnyDesk")
-    root.geometry("800x400")
+    root.geometry("682x412")
     root.configure(bg="#f0f0f0")
 
     style = ttk.Style()
@@ -96,14 +114,20 @@ def iniciar_interface():
     style.configure("TFrame", background="#f0f0f0")
 
     search_frame = ttk.Frame(root)
-    search_frame.grid(row=0, column=0, pady=10, sticky=(tk.W, tk.E))
-    ttk.Label(search_frame, text="Buscar ID ou Nome:").pack(side=tk.LEFT, padx=5)
+    search_frame.grid(row=0, column=0, pady=10, padx=10, sticky=(tk.W, tk.E))
+    search_frame.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+
+    ttk.Label(search_frame, text="Buscar ID ou Nome:").grid(row=0, column=0, padx=5)
     search_entry = ttk.Entry(search_frame, width=30)
-    search_entry.pack(side=tk.LEFT, padx=5)
-    ttk.Button(search_frame, text="Abrir AnyDesk", image=icon_open, compound=tk.LEFT if icon_open else None, command=lambda: abrir_anydesk(search_entry.get())).pack(side=tk.LEFT, padx=5)
+    search_entry.grid(row=0, column=1, padx=5)
+    ttk.Button(search_frame, text="Abrir AnyDesk", image=icon_open, compound=tk.LEFT if icon_open else None, command=lambda: abrir_anydesk(search_entry.get())).grid(row=0, column=2, padx=5)
+    hidden_button = ttk.Button(search_frame, text="Ver Acessos Ocultos", image=icon_view_hidden, compound=tk.LEFT if icon_view_hidden else None, command=lambda: mostrar_acessos_ocultos())
+    hidden_button.grid(row=0, column=3, padx=5)
+    hide_button = ttk.Button(search_frame, text="Ocultar Acesso", image=icon_hide, compound=tk.LEFT if icon_hide else None, command=lambda: ocultar_selecionado(tree))
+    hide_button.grid(row=0, column=4, padx=5)
 
     frame = ttk.Frame(root, padding="10")
-    frame.grid(row=1, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
+    frame.grid(row=1, column=0, padx=10, pady=10, sticky=(tk.N, tk.S, tk.E, tk.W))
     frame.grid_columnconfigure(0, weight=1)
     root.grid_columnconfigure(0, weight=1)
     frame.grid_rowconfigure(0, weight=1)
@@ -112,12 +136,6 @@ def iniciar_interface():
     tree.heading("ID", text="ID")
     tree.heading("Nome", text="Nome")
     tree.grid(row=0, column=0, sticky=(tk.N, tk.S, tk.E, tk.W))
-
-    hidden_button = ttk.Button(root, text="Ver Acessos Ocultos", image=icon_view_hidden, compound=tk.LEFT if icon_view_hidden else None, command=lambda: mostrar_acessos_ocultos())
-    hidden_button.grid(row=0, column=1, padx=5, sticky=(tk.E))
-
-    hide_button = ttk.Button(root, text="Ocultar Acesso Selecionado", image=icon_hide, compound=tk.LEFT if icon_hide else None, command=lambda: ocultar_selecionado(tree))
-    hide_button.grid(row=1, column=1, padx=5, sticky=(tk.E))
 
     saved_accesses = load_saved_accesses()
     update_treeview(tree, saved_accesses)
@@ -133,6 +151,7 @@ def iniciar_interface():
     def hide_access(remote_id):
         if remote_id in saved_accesses:
             hidden_accesses[remote_id] = saved_accesses.pop(remote_id)
+            save_hidden_accesses()
             update_treeview(tree, saved_accesses)
 
     def ocultar_selecionado(tree):
@@ -154,6 +173,21 @@ def iniciar_interface():
 
         for remote_id, name in hidden_accesses.items():
             ocultos_tree.insert("", "end", values=(remote_id, name))
+
+        def restaurar_selecionado():
+            selected_item = ocultos_tree.focus()
+            if not selected_item:
+                messagebox.showwarning("Nenhuma seleção", "Por favor, selecione um item para restaurar.")
+                return
+            item_values = ocultos_tree.item(selected_item, 'values')
+            remote_id = item_values[0]
+            if remote_id in hidden_accesses:
+                saved_accesses[remote_id] = hidden_accesses.pop(remote_id)
+                save_hidden_accesses()
+                update_treeview(tree, saved_accesses)
+                ocultos_tree.delete(selected_item)
+
+        ttk.Button(ocultos_window, text="Restaurar Acesso Selecionado", image=icon_view, compound=tk.LEFT if icon_view else None, command=restaurar_selecionado).pack(pady=5)
 
     search_entry.bind("<KeyRelease>", on_key_release)
     tree.bind("<Double-1>", lambda event: abrir_anydesk(tree.item(tree.selection()[0], "values")[0]))
