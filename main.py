@@ -31,15 +31,33 @@ shortcut_path = r'C:\Projeto Acesso AnyDesk\atalhos_anydesk\1695790049.lnk'
 
 # Load icons if available
 icon_open = icon_hide = icon_view_hidden = icon_start = icon_stop = icon_view = None
-try:
-    icon_open = ImageTk.PhotoImage(Image.open("open_icon.png").resize((16, 16), Image.ANTIALIAS))
-    icon_hide = ImageTk.PhotoImage(Image.open("hide_icon.png").resize((16, 16), Image.ANTIALIAS))
-    icon_view_hidden = ImageTk.PhotoImage(Image.open("view_hidden_icon.png").resize((16, 16), Image.ANTIALIAS))
-    icon_start = ImageTk.PhotoImage(Image.open("start_icon.png").resize((16, 16), Image.ANTIALIAS))
-    icon_stop = ImageTk.PhotoImage(Image.open("stop_icon.png").resize((16, 16), Image.ANTIALIAS))
-    icon_view = ImageTk.PhotoImage(Image.open("view_icon.png").resize((16, 16), Image.ANTIALIAS))
-except FileNotFoundError:
-    print("Um ou mais ícones não foram encontrados. Continuando sem ícones.")
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    try:
+        icon_open = ImageTk.PhotoImage(Image.open("open_icon.png").resize((24, 24), Image.Resampling.LANCZOS))
+    except FileNotFoundError:
+        print("open_icon.png not found. Continuing without icon.")
+    try:
+        icon_hide = ImageTk.PhotoImage(Image.open("hide_icon.png").resize((24, 24), Image.Resampling.LANCZOS))
+    except FileNotFoundError:
+        print("hide_icon.png not found. Continuing without icon.")
+    try:
+        icon_view_hidden = ImageTk.PhotoImage(Image.open("view_hidden_icon.png").resize((24, 24), Image.Resampling.LANCZOS))
+    except FileNotFoundError:
+        print("view_hidden_icon.png not found. Continuing without icon.")
+    try:
+        icon_start = ImageTk.PhotoImage(Image.open("start_icon.png").resize((24, 24), Image.Resampling.LANCZOS))
+    except FileNotFoundError:
+        print("start_icon.png not found. Continuing without icon.")
+    try:
+        icon_stop = ImageTk.PhotoImage(Image.open("stop_icon.png").resize((24, 24), Image.Resampling.LANCZOS))
+    except FileNotFoundError:
+        print("stop_icon.png not found. Continuing without icon.")
+    try:
+        icon_view = ImageTk.PhotoImage(Image.open("view_icon.png").resize((24, 24), Image.Resampling.LANCZOS))
+    except FileNotFoundError:
+        print("view_icon.png not found. Continuing without icon.")
 
 # Load hidden accesses from file
 hidden_accesses = {}
@@ -102,14 +120,13 @@ def update_treeview(tree, saved_accesses):
             tree.insert("", "end", values=(remote_id, name))
 
 def iniciar_interface():
-    root = tk.Tk()
     root.title("Monitoramento de Acessos AnyDesk")
-    root.geometry("682x412")
+    root.geometry("600x380")
     root.configure(bg="#f0f0f0")
 
     style = ttk.Style()
     style.theme_use("clam")
-    style.configure("TButton", padding=6, relief="flat", background="#ccc")
+    style.configure("TButton", padding=6, relief="flat", background="#f0f0f0", borderwidth=0)
     style.configure("TLabel", background="#f0f0f0")
     style.configure("TFrame", background="#f0f0f0")
 
@@ -120,14 +137,20 @@ def iniciar_interface():
     ttk.Label(search_frame, text="Buscar ID ou Nome:").grid(row=0, column=0, padx=5)
     search_entry = ttk.Entry(search_frame, width=30)
     search_entry.grid(row=0, column=1, padx=5)
-    ttk.Button(search_frame, text="Abrir AnyDesk", image=icon_open, compound=tk.LEFT if icon_open else None, command=lambda: abrir_anydesk(search_entry.get())).grid(row=0, column=2, padx=5)
-    hidden_button = ttk.Button(search_frame, text="Ver Acessos Ocultos", image=icon_view_hidden, compound=tk.LEFT if icon_view_hidden else None, command=lambda: mostrar_acessos_ocultos())
-    hidden_button.grid(row=0, column=3, padx=5)
-    hide_button = ttk.Button(search_frame, text="Ocultar Acesso", image=icon_hide, compound=tk.LEFT if icon_hide else None, command=lambda: ocultar_selecionado(tree))
-    hide_button.grid(row=0, column=4, padx=5)
+    button_open_anydesk = ttk.Button(search_frame, text="" if icon_open else "Abrir AnyDesk", image=icon_open, compound=None if icon_open else tk.LEFT, command=lambda: abrir_anydesk(search_entry.get()))
+    button_open_anydesk.grid(row=0, column=2, padx=5)
+    button_open_anydesk.grid_remove()
+    button_view_hidden = ttk.Button(search_frame, text="" if icon_view_hidden else "Ver Acessos Ocultos", image=icon_view_hidden, compound=None if icon_view_hidden else tk.LEFT, command=lambda: mostrar_acessos_ocultos())
+    button_view_hidden.grid(row=0, column=3, padx=5)
+    if hidden_accesses:
+        button_view_hidden.grid()
+    else:
+        button_view_hidden.grid_remove()
+    ttk.Button(search_frame, text="" if icon_hide else "Ocultar Acesso", image=icon_hide, compound=None if icon_hide else tk.LEFT, command=lambda: ocultar_selecionado(tree)).grid(row=0, column=4, padx=5)
 
     frame = ttk.Frame(root, padding="10")
     frame.grid(row=1, column=0, padx=10, pady=10, sticky=(tk.N, tk.S, tk.E, tk.W))
+    root.grid_propagate(True)
     frame.grid_columnconfigure(0, weight=1)
     root.grid_columnconfigure(0, weight=1)
     frame.grid_rowconfigure(0, weight=1)
@@ -142,6 +165,10 @@ def iniciar_interface():
 
     def on_key_release(event):
         query = search_entry.get().strip().lower()
+        if validar_remote_id(query):
+                button_open_anydesk.grid()
+        else:
+                button_open_anydesk.grid_remove()
         resultados = [(id, name) for id, name in saved_accesses.items() if query in id.lower() or query in name.lower()]
         tree.delete(*tree.get_children())
         for remote_id, name in resultados:
@@ -156,6 +183,31 @@ def iniciar_interface():
 
     def ocultar_selecionado(tree):
         selected_item = tree.focus()
+        if not selected_item:
+                messagebox.showwarning("Nenhuma seleção", "Por favor, selecione um item para ocultar.")
+                return
+        item_values = tree.item(selected_item, 'values')
+        hide_access(item_values[0])
+        if hidden_accesses:
+                button_view_hidden.grid()
+        else:
+                button_view_hidden.grid_remove()
+        if not selected_item:
+                messagebox.showwarning("Nenhuma seleção", "Por favor, selecione um item para ocultar.")
+                return
+        item_values = tree.item(selected_item, 'values')
+        hide_access(item_values[0])
+        if hidden_accesses:
+                button_view_hidden.grid()
+        else:
+                button_view_hidden.grid_remove()
+        if not selected_item:
+                messagebox.showwarning("Nenhuma seleção", "Por favor, selecione um item para ocultar.")
+                return
+        item_values = tree.item(selected_item, 'values')
+        hide_access(item_values[0])
+        if hidden_accesses:
+                button_view_hidden.grid()
         if not selected_item:
             messagebox.showwarning("Nenhuma seleção", "Por favor, selecione um item para ocultar.")
             return
@@ -177,6 +229,30 @@ def iniciar_interface():
         def restaurar_selecionado():
             selected_item = ocultos_tree.focus()
             if not selected_item:
+                        messagebox.showwarning("Nenhuma seleção", "Por favor, selecione um item para restaurar.")
+                        return
+            item_values = ocultos_tree.item(selected_item, 'values')
+            remote_id = item_values[0]
+            if remote_id in hidden_accesses:
+                        saved_accesses[remote_id] = hidden_accesses.pop(remote_id)
+                        save_hidden_accesses()
+                        update_treeview(tree, saved_accesses)
+                        ocultos_tree.delete(selected_item)
+            if not hidden_accesses:
+                        button_view_hidden.grid_remove()
+            if not selected_item:
+                        messagebox.showwarning("Nenhuma seleção", "Por favor, selecione um item para restaurar.")
+                        return
+            item_values = ocultos_tree.item(selected_item, 'values')
+            remote_id = item_values[0]
+            if remote_id in hidden_accesses:
+                        saved_accesses[remote_id] = hidden_accesses.pop(remote_id)
+                        save_hidden_accesses()
+                        update_treeview(tree, saved_accesses)
+                        ocultos_tree.delete(selected_item)
+            if not hidden_accesses:
+                        button_view_hidden.grid_remove()
+            if not selected_item:
                 messagebox.showwarning("Nenhuma seleção", "Por favor, selecione um item para restaurar.")
                 return
             item_values = ocultos_tree.item(selected_item, 'values')
@@ -187,13 +263,14 @@ def iniciar_interface():
                 update_treeview(tree, saved_accesses)
                 ocultos_tree.delete(selected_item)
 
-        ttk.Button(ocultos_window, text="Restaurar Acesso Selecionado", image=icon_view, compound=tk.LEFT if icon_view else None, command=restaurar_selecionado).pack(pady=5)
+        ttk.Button(ocultos_window, text="" if icon_view else "Restaurar Acesso Selecionado", image=icon_view, compound=None if icon_view else tk.LEFT, command=restaurar_selecionado).pack(pady=5)
 
     search_entry.bind("<KeyRelease>", on_key_release)
     tree.bind("<Double-1>", lambda event: abrir_anydesk(tree.item(tree.selection()[0], "values")[0]))
 
-    ttk.Button(frame, text="Iniciar Monitoramento", image=icon_start, compound=tk.LEFT if icon_start else None, command=lambda: monitor_anydesk_log(log_file_path, saved_accesses, tree, root)).grid(row=1, column=0, pady=5)
-    ttk.Button(frame, text="Parar Monitoramento", image=icon_stop, compound=tk.LEFT if icon_stop else None, command=root.quit).grid(row=2, column=0, pady=5)
+    monitor_anydesk_log(log_file_path, saved_accesses, tree, root)
+
+    ttk.Button(frame, text="" if icon_stop else "Parar Monitoramento", image=icon_stop, compound=None if icon_stop else tk.LEFT, command=root.quit).grid(row=2, column=0, pady=5)
 
     iniciar_listener(lambda: update_treeview(tree, load_saved_accesses()))
     root.mainloop()
